@@ -165,15 +165,15 @@ def calculate_runnning_magnetisation(mcmc_chain: MCMCChain, skip_steps: int = 1)
     return list_mag_after_each_step
 
 from typing import Union        
-def get_trajectory_statistics(mcmc_chain: MCMCChain, model: Union[IsingEnergyFunction, Exact_Sampling],to_observe:set = {'acceptance_prob','kldiv', 'hamming', 'energy', 'magnetisation'} ,verbose:bool= False):
+def get_trajectory_statistics(mcmc_chain: MCMCChain, model: Union[IsingEnergyFunction, Exact_Sampling],to_observe:set = {'acceptance_prob','kldiv', 'hamming', 'energy', 'magnetisation', 'transition_matrix'} ,verbose:bool= False):
 
-    trajectory = mcmc_chain.states
-
+    trajectory = mcmc_chain.states; nspin = model.num_spins
+    
     acceptance_prob = lambda si, sf: min(1, model.get_boltzmann_factor(sf.bitstring) / model.get_boltzmann_factor(si.bitstring) )
     hamming_diff = lambda si, sf: hamming_dist(si.bitstring, sf.bitstring)
     energy_diff = lambda si, sf: model.get_energy(sf.bitstring) - model.get_energy(si.bitstring)
 
-    acceptance_statistic = [];hamming_statistic = [];energy_statistic = []
+    acceptance_statistic = [];hamming_statistic = [];energy_statistic = []; transition_matrix= np.zeros((2**nspin, 2**nspin))
     
     current_state_index = 0; proposed_state_index = current_state_index + 1
 
@@ -185,6 +185,10 @@ def get_trajectory_statistics(mcmc_chain: MCMCChain, model: Union[IsingEnergyFun
         if 'acceptance_prob' in to_observe: acceptance_statistic.append( acceptance_prob(trajectory[current_state_index], trajectory[proposed_state_index] ) )
         if 'energy' in to_observe: energy_statistic.append( energy_diff(trajectory[current_state_index], trajectory[proposed_state_index] ) )
         if 'hamming' in to_observe: hamming_statistic.append( hamming_diff(trajectory[current_state_index], trajectory[proposed_state_index] ) )
+
+        if 'transition_matrix' in to_observe:
+            t_i = int(trajectory[current_state_index].bitstring, 2); t_f = int(trajectory[current_state_index].bitstring, 2)
+            transition_matrix[t_i, t_f] += acceptance_prob(trajectory[current_state_index], trajectory[proposed_state_index] )
 
         
         if trajectory[proposed_state_index].accepted :
@@ -199,5 +203,11 @@ def get_trajectory_statistics(mcmc_chain: MCMCChain, model: Union[IsingEnergyFun
     if 'kldiv' in to_observe:
         rkl = calculate_running_kl_divergence(model.boltzmann_pd, mcmc_chain, skip_steps= 1)
         trajectory_statistics['kldiv'] = np.array(rkl)
+    if 'transition_matrix' in to_observe:
+        for i in range(transition_matrix.shape[0]) :
+            z = transition_matrix[i].sum()
+            if z != 0: transition_matrix[i] = transition_matrix[i] / z
+
+        trajectory_statistics['transition_matrix'] = transition_matrix
 
     return trajectory_statistics
