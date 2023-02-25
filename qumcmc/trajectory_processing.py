@@ -187,8 +187,8 @@ def get_trajectory_statistics(mcmc_chain: MCMCChain, model: Union[IsingEnergyFun
         if 'hamming' in to_observe: hamming_statistic.append( hamming_diff(trajectory[current_state_index], trajectory[proposed_state_index] ) )
 
         if 'transition_matrix' in to_observe:
-            t_i = int(trajectory[current_state_index].bitstring, 2); t_f = int(trajectory[current_state_index].bitstring, 2)
-            transition_matrix[t_i, t_f] += acceptance_prob(trajectory[current_state_index], trajectory[proposed_state_index] )
+            t_i = int(trajectory[current_state_index].bitstring, 2); t_f = int(trajectory[proposed_state_index].bitstring, 2)
+            transition_matrix[t_i, t_f] +=  1 #* acceptance_prob(trajectory[current_state_index], trajectory[proposed_state_index] )
 
         
         if trajectory[proposed_state_index].accepted :
