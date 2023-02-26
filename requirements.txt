@@ -1,0 +1,16 @@
+qiskit>=0.29.0
+qiskit-machine-learning
+qiskit-optimization
+pandas
+networkx
+numpy
+pytest
+tqdm
+cvxgraphalgs
+cvxopt
+scikit-learn==1.0
+notebook
+matplotlib
+seaborn
+qulacs
+collections-extended
