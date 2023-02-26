@@ -14,15 +14,11 @@ provider = IBMQ.get_provider(hub ='ibm-q')
 backend = provider.get_backend('ibmq_lima')  ## !!!Remember to change provider later
 
 
+from .basic_utils import qsm, states, MCMCChain, MCMCState
+# from .prob_dist import *
+from .energy_models import IsingEnergyFunction
+from .classical_mcmc_routines import test_accept, get_random_state
 
-## Removed just for testing
-# from .basic_utils import qsm, states, MCMCChain, MCMCState
-# # from .prob_dist import *
-# from .energy_models import IsingEnergyFunction
-# from .classical_mcmc_routines import test_accept, get_random_state
-
-from qiskit import Aer
-qsm = Aer.get_backend("qasm_simulator") ## Added for testing
 
 from qiskit import (
     QuantumCircuit,
@@ -200,26 +196,10 @@ def combine_2_qc(init_qc: QuantumCircuit, trottered_qc: QuantumCircuit) -> Quant
 ################################################################################################
 ##  QUANTUM MARKOV CHAIN CONSTRUCTION ##
 ################################################################################################
-# model: IsingEnergyFunction,
 
 
-## Testing parameters
-n_spins = 2
-shape_of_J=(n_spins,n_spins)
-
-## defining J matrix (mutual 1-1 interaction)
-# J =  np.round(np.random.choice([+1, 0, -1], size=(n_spins, n_spins)), decimals=2) 
-J =  np.random.uniform(low= -2, high= 2, size= shape_of_J )
-
-J = 0. * (J + J.transpose() )
-J = np.round( J - np.diag(np.diag(J)) , decimals= 3)
-
-# defining h
-h = np.round(0.5 * np.random.randn(n_spins), decimals=2)
-
-
-def run_qc_quantum_step(h,J, alpha, n_spins: int,SPAM_twirl:bool = True, RZZ_twirl:bool = False
-) -> str:
+def run_qc_quantum_step(model: IsingEnergyFunction, alpha, n_spins: int,gamma:float, time:float ,SPAM_twirl:bool = True, RZZ_twirl:bool = False
+):
 
     """
     Takes in a qc initialized to some state "s". After performing unitary evolution U=exp(-iHt)
@@ -227,11 +207,11 @@ def run_qc_quantum_step(h,J, alpha, n_spins: int,SPAM_twirl:bool = True, RZZ_twi
 
     ARGS:
     ----
-    qc_initialised_to_s:
     model:
     alpha:
     n_spins:
-    
+    SPAM_twirl
+    RZZ_twirl
     """
     if SPAM_twirl:
         c = np.random.choice([-1, 1], size=n_spins) ## For SPAM twirling, added into J,h
@@ -241,12 +221,16 @@ def run_qc_quantum_step(h,J, alpha, n_spins: int,SPAM_twirl:bool = True, RZZ_twi
     c_ij = np.outer(c,c)
     flipping = int("0b" + "".join('1' if x == -1 else '0' for x in reversed(c)),2) ## Used later for flipping inital/final bits
                                                                                  ## Reversed c due to opposite encoding in qiskit
-    h = c * h#* model.get_h# and not model.get_h() anymore
-    J = c_ij * J #* model.get_J# and not model.get_J() anymore
+    h = c * model.get_h # and not model.get_h() anymore
+    J = c_ij * model.get_J # and not model.get_J() anymore
 
     # init_qc=initialise_qc(n_spins=n_spins, bitstring='1'*n_spins)
-    gamma = np.round(np.random.uniform(0.25, 0.6), decimals=2)
-    time = np.random.choice(list(range(2, 12)))  # earlier I had [2,20]
+
+    """!!! Commented this out since now we change gamma,t from outside chosen from discrete distribution"""
+    # gamma = np.round(np.random.uniform(0.25, 0.6), decimals=2)
+    # time = np.random.choice(list(range(2, 12)))  # earlier I had [2,20]
+
+
     delta_time = 0.8
     num_trotter_steps = int(np.floor((time / delta_time)))
     # print(f"gamma:{gamma}, time: {time}, delta_time: {delta_time}, num_trotter_steps:{num_trotter_steps}")
@@ -293,59 +277,58 @@ def run_qc_quantum_step(h,J, alpha, n_spins: int,SPAM_twirl:bool = True, RZZ_twi
     return proposal_matrix
 
 
-print(np.array_str(run_qc_quantum_step(h,J,0.8,n_spins,True,False), precision=3))
-
-# def quantum_enhanced_mcmc(
-#     n_hops: int,
-#     model: IsingEnergyFunction,
-#     # alpha,
-#     initial_state: Optional[str] = None,
-#     temperature=1,
-# ):
-#     """
-#     version 0.2
+## This function needs to be modified entirely, wont work under new run_qc_quantum_step
+def quantum_enhanced_mcmc(
+    n_hops: int,
+    model: IsingEnergyFunction,
+    # alpha,
+    initial_state: Optional[str] = None,
+    temperature=1,
+):
+    """
+    version 0.2
     
-#     ARGS:
-#     ----
-#     Nhops: Number of time you want to run mcmc
-#     model:
-#     return_last_n_states:
-#     return_both:
-#     temp:
+    ARGS:
+    ----
+    Nhops: Number of time you want to run mcmc
+    model:
+    return_last_n_states:
+    return_both:
+    temp:
 
-#     RETURNS:
-#     -------
-#     Last 'return_last_n_states' elements of states so collected (default value=500). one can then deduce the distribution from it!
+    RETURNS:
+    -------
+    Last 'return_last_n_states' elements of states so collected (default value=500). one can then deduce the distribution from it!
     
-#     """
-#     num_spins = model.num_spins
+    """
+    num_spins = model.num_spins
 
-#     if initial_state is None:
-#         initial_state = MCMCState(get_random_state(num_spins), accepted=True)
-#     else:
-#         initial_state = MCMCState(initial_state, accepted=True)
+    if initial_state is None:
+        initial_state = MCMCState(get_random_state(num_spins), accepted=True)
+    else:
+        initial_state = MCMCState(initial_state, accepted=True)
     
-#     current_state: MCMCState = initial_state
-#     energy_s = model.get_energy(current_state.bitstring)
-#     print("starting with: ", current_state.bitstring, "with energy:", energy_s)
+    current_state: MCMCState = initial_state
+    energy_s = model.get_energy(current_state.bitstring)
+    print("starting with: ", current_state.bitstring, "with energy:", energy_s)
 
-#     mcmc_chain = MCMCChain([current_state])
+    mcmc_chain = MCMCChain([current_state])
 
-#     print(mcmc_chain)
-#     for _ in tqdm(range(0, n_hops), desc='runnning quantum MCMC steps . ..' ):
-#         # get sprime
-#         qc_s = initialise_qc(n_spins= model.num_spins, bitstring=current_state.bitstring)
-#         s_prime = run_qc_quantum_step(
-#             qc_initialised_to_s=qc_s, model=model, alpha=model.alpha, n_spins= model.num_spins
-#         )
-#         # accept/reject s_prime
-#         energy_sprime = model.get_energy(s_prime)
-#         accepted = test_accept(
-#             energy_s, energy_sprime, temperature=temperature
-#         )
-#         mcmc_chain.add_state(MCMCState(s_prime, accepted))
-#         if accepted:
-#             current_state = mcmc_chain.current_state
-#             energy_s = model.get_energy(current_state.bitstring)
+    print(mcmc_chain)
+    for _ in tqdm(range(0, n_hops), desc='runnning quantum MCMC steps . ..' ):
+        # get sprime
+        qc_s = initialise_qc(n_spins= model.num_spins, bitstring=current_state.bitstring)
+        s_prime = run_qc_quantum_step(
+            qc_initialised_to_s=qc_s, model=model, alpha=model.alpha, n_spins= model.num_spins
+        )
+        # accept/reject s_prime
+        energy_sprime = model.get_energy(s_prime)
+        accepted = test_accept(
+            energy_s, energy_sprime, temperature=temperature
+        )
+        mcmc_chain.add_state(MCMCState(s_prime, accepted))
+        if accepted:
+            current_state = mcmc_chain.current_state
+            energy_s = model.get_energy(current_state.bitstring)
 
-#     return mcmc_chain 
+    return mcmc_chain 
