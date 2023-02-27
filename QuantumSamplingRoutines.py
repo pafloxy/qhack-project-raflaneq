@@ -24,7 +24,7 @@ from qumcmc.basic_utils import qsm, states, MCMCChain, MCMCState
 # from .prob_dist import *
 from qumcmc.energy_models import IsingEnergyFunction
 from qumcmc.classical_mcmc_routines import test_accept, get_random_state
-
+from qiskit import transpile, transpiler
 
 from qiskit import (
     QuantumCircuit,
@@ -164,10 +164,12 @@ def fn_qc_h2(J:np.array, alpha:float, gamma:float, delta_time=0.8, RZZ_twirl = F
         ## No twirling
         for j in range(0, num_spins - 1):
             for k in range(j+1,num_spins):
-                angle= theta_array[j,k]  
-                qc_for_evol_h2.rzz(
-                    angle % 2 * np.pi, qubit1=num_spins - 1 - j, qubit2=num_spins - 1 - k
-                )
+                angle= theta_array[j,k]  % 2*np.pi 
+                
+                if np.abs(angle) >= 0.00001 and np.abs(angle - 2*np.pi) >= 0.00001 :
+                    qc_for_evol_h2.rzz(
+                        angle, qubit1=num_spins - 1 - j, qubit2=num_spins - 1 - k
+                    )
 
 
     # print("qc for fn_qc_h2 is:"); print(qc_for_evol_h2.draw())
@@ -206,10 +208,11 @@ def combine_2_qc(init_qc: QuantumCircuit, trottered_qc: QuantumCircuit) -> Quant
 # @dataclass
 class QuantumSamplingJob() :
 
-    def __init__(self, model: IsingEnergyFunction, backend: IBMBackend) -> None:
+    def __init__(self, model: IsingEnergyFunction, backend: IBMBackend, backend_layout:list) -> None:
         self.model = model
         self.backend = backend
         self.n_spins = model.num_spins
+        self.inital_layout = backend_layout
 
         self.ProposalMatrix = np.zeros((2**self.n_spins, 2**self.n_spins))
 
@@ -218,7 +221,7 @@ class QuantumSamplingJob() :
         
         pass
 
-    def run_quantum_circuit(self, gamma:float , time:float, delta_time:float = 0.8, num_shots:int = 1024, SPAM_twirl:bool = True, RZZ_twirl:bool = False, save_circuit_execution_data= True, save_data= True, verbose= True, return_quantum_circuit= False) :    
+    def run_quantum_circuit(self, gamma:float , time:float, delta_time:float = 0.8, num_shots:int = 1024,SPAM_twirl:bool = True, RZZ_twirl:bool = False, save_circuit_execution_data= True, save_data= True, verbose= True, return_quantum_circuit= False, twirl_counter:int = 0) :    
 
         alpha = self.model.alpha; n_spins = self.model.num_spins
         if SPAM_twirl:
@@ -261,11 +264,12 @@ class QuantumSamplingJob() :
         ## EXECUTE CIRCUIT ON BACKEND    
         if verbose: print("Circuit Built. Executing on backend : " +str(self.backend) )              
 
+        qc_for_mcmc = transpile(qc_for_mcmc, backend = self.backend, optimization_level= 2, initial_layout= self.intial_layout)
         circuit_executions_result = execute(qc_for_mcmc, shots=num_shots, backend=self.backend).result()
         
         if save_circuit_execution_data: 
             self.quantum_circuit_id += 1
-            name =  self.model.name + 'id' + str(self.quantum_circuit_id) + '.pickle'; assert isinstance(name, str)
+            name =  self.model.name + 'id' + str(self.quantum_circuit_id) + 't' + str(twirl_counter)+ '.pickle'; assert isinstance(name, str)
             with open('DATA/raw-circuit-outputs/'+ name, 'wb') as handle:
                 pickle.dump(circuit_executions_result, handle)
                 # pickle.dump(circuit_executions_result.get_counts(), handle)
