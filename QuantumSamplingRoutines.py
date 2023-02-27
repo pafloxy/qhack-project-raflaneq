@@ -212,7 +212,7 @@ class QuantumSamplingJob() :
         self.model = model
         self.backend = backend
         self.n_spins = model.num_spins
-        self.inital_layout = backend_layout
+        self.initial_layout = backend_layout
 
         self.ProposalMatrix = np.zeros((2**self.n_spins, 2**self.n_spins))
 
@@ -264,7 +264,7 @@ class QuantumSamplingJob() :
         ## EXECUTE CIRCUIT ON BACKEND    
         if verbose: print("Circuit Built. Executing on backend : " +str(self.backend) )              
 
-        qc_for_mcmc = transpile(qc_for_mcmc, backend = self.backend, optimization_level= 2, initial_layout= self.intial_layout)
+        qc_for_mcmc = transpile(qc_for_mcmc, backend = self.backend, optimization_level= 2, initial_layout= self.initial_layout)
         circuit_executions_result = execute(qc_for_mcmc, shots=num_shots, backend=self.backend).result()
         
         if save_circuit_execution_data: 
