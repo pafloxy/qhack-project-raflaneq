@@ -87,7 +87,7 @@ def fn_qc_h1(num_spins: int, gamma, alpha, h, delta_time) -> QuantumCircuit :
     list_unitaries = [
         UnitaryGate(
             HamiltonianGate(
-                a * XGate().to_matrix() + b_list[j] * ZGate().to_matrix(),
+                a * XGate().to_matrix() + b_list[j] % 2*np.pi * ZGate().to_matrix(),
                 time=delta_time,
             ).to_matrix(),
             label=f"exp(-ia{j}X+b{j}Z)",
@@ -153,7 +153,7 @@ def fn_qc_h2(J:np.array, alpha:float, gamma:float, delta_time=0.8, RZZ_twirl = F
                 check = is_commute(Pauli_a,Pauli_b)
                 angle=check * theta_array[j,k]  
                 qc_for_evol_h2.rzz(
-                    angle, qubit1=num_spins - 1 - j, qubit2=num_spins - 1 - k
+                    angle % 2 *np.pi , qubit1=num_spins - 1 - j, qubit2=num_spins - 1 - k
                 )
 
                 ## Finish twirling 
@@ -166,7 +166,7 @@ def fn_qc_h2(J:np.array, alpha:float, gamma:float, delta_time=0.8, RZZ_twirl = F
             for k in range(j+1,num_spins):
                 angle= theta_array[j,k]  
                 qc_for_evol_h2.rzz(
-                    angle, qubit1=num_spins - 1 - j, qubit2=num_spins - 1 - k
+                    angle % 2 * np.pi, qubit1=num_spins - 1 - j, qubit2=num_spins - 1 - k
                 )
 
 
