@@ -11,7 +11,7 @@ import pickle; import json
 
 
 from qumcmc.basic_utils import qsm, states, MCMCChain, MCMCState
-# from .prob_dist import *
+from qumcmc.prob_dist import *
 from qumcmc.energy_models import IsingEnergyFunction
 from qumcmc.classical_mcmc_routines import test_accept, get_random_state
 # from qiskit import (
@@ -145,12 +145,19 @@ class QuantumSamplingJob():
         self.n_spins = model.num_spins
         
         self.quantum_circuit_id = 0
+
+        self.transition_data = {}
+        tdata = {}
+        for state in states(self.n_spins):
+            tdata[state] = 0.0
+        for state in states(self.n_spins):
+            self.transition_data[state] = tdata
+
         pass
     
-    def run_quantum_circuit(self, gamma:float, time:float, delta_time:float= 0.8, num_shots:int= 1024, save_circuit_execution_data= True, save_data= True, verbose= True ):
+    def sample_tranistion_matrix(self, gamma:float, time:float, delta_time:float= 0.8, num_shots:int= 1024, save_data= True, verbose= True ):
         
         initial_state = get_random_state(self.n_spins)
-
         qc_initialised_to_s = initialise_qc(self.model.num_spins, initial_state)
         
         num_trotter_steps = int(np.floor((time / delta_time)))
@@ -161,22 +168,28 @@ class QuantumSamplingJob():
         )
         qc_for_mcmc = combine_2_qc(qc_initialised_to_s, trotter_ckt)# i can get rid of this!
         # run the circuit
-        q_state=QuantumState(qubit_count=self.n_spins)
-        q_state.set_zero_state()
-
+        q_state=QuantumState(qubit_count=self.n_spins);q_state.set_zero_state()
         qc_for_mcmc.update_quantum_state(q_state)
         states_obtained= q_state.sampling(sampling_count= num_shots)
-        states_obtained_binary= Counter([f"{state_obtained:0{self.n_spins}b}" for state_obtained in states_obtained])
+        states_obtained_binary= DiscreteProbabilityDistribution(Counter([f"{state_obtained:0{self.n_spins}b}" for state_obtained in states_obtained]))
 
-        if save_circuit_execution_data: 
-            self.quantum_circuit_id += 1
-            name =  self.model.name + 'id' + str(self.quantum_circuit_id) + '.pickle'; assert isinstance(name, str)
-            with open('DATA/sampling-data/'+ name, 'wb') as handle:
-                pickle.dump(states_obtained_binary, handle)
+
+    
+        tdata = self.transition_data[initial_state]
+        for k in states_obtained_binary.keys():
+            tdata[k] += states_obtained_binary[k]
+        self.transition_data[initial_state] = DiscreteProbabilityDistribution(tdata)
+            
+
+        if save_data: 
+            # self.quantum_circuit_id += 1
+            name =  self.model.name + '.pickle'; assert isinstance(name, str)
+            with open('DATA/transition-data/'+ name, 'wb') as handle:
+                pickle.dump(self.transition_data, handle)
         
         
         
-        pass
+        
 
 
 
