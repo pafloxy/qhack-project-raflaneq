@@ -20,10 +20,10 @@ from qiskit_ibm_provider import IBMProvider, IBMBackend
 # provider = IBMProvider(token='') ##no-need for token for previously saved acaount -> provider.save_account(token='')
 provider = IBMProvider()
 
-from .basic_utils import qsm, states, MCMCChain, MCMCState
+from qumcmc.basic_utils import qsm, states, MCMCChain, MCMCState
 # from .prob_dist import *
-from .energy_models import IsingEnergyFunction
-from .classical_mcmc_routines import test_accept, get_random_state
+from qumcmc.energy_models import IsingEnergyFunction
+from qumcmc.classical_mcmc_routines import test_accept, get_random_state
 
 
 from qiskit import (
