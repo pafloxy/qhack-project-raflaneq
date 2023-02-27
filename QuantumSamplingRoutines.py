@@ -218,7 +218,7 @@ class QuantumSamplingJob() :
         
         pass
 
-    def run_quantum_circuit(self, gamma:float , time:float, delta_time:float = 0.8, num_shots:int = 1024, SPAM_twirl:bool = True, RZZ_twirl:bool = False, save_circuit_execution_data= True, save_data= True, verbose= True) :    
+    def run_quantum_circuit(self, gamma:float , time:float, delta_time:float = 0.8, num_shots:int = 1024, SPAM_twirl:bool = True, RZZ_twirl:bool = False, save_circuit_execution_data= True, save_data= True, verbose= True, return_quantum_circuit= False) :    
 
         alpha = self.model.alpha; n_spins = self.model.num_spins
         if SPAM_twirl:
@@ -254,6 +254,9 @@ class QuantumSamplingJob() :
 
         qc_for_mcmc.measure(qc_for_mcmc.qregs[0], final_state)
         
+        if return_quantum_circuit: 
+            return qc_for_mcmc
+            
         
         ## EXECUTE CIRCUIT ON BACKEND    
         if verbose: print("Circuit Built. Executing on backend : " +str(self.backend) )              
