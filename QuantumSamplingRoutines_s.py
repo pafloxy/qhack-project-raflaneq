@@ -171,7 +171,7 @@ class QuantumSamplingJob():
         q_state=QuantumState(qubit_count=self.n_spins);q_state.set_zero_state()
         qc_for_mcmc.update_quantum_state(q_state)
         states_obtained= q_state.sampling(sampling_count= num_shots)
-        states_obtained_binary= DiscreteProbabilityDistribution(Counter([f"{state_obtained:0{self.n_spins}b}" for state_obtained in states_obtained]))
+        states_obtained_binary= DiscreteProbabilityDistribution(Counter([f"{state_obtained:0{self.n_spins}b}" for state_obtained in states_obtained if state_obtained in self.transition_data.keys()]))
 
 
     
