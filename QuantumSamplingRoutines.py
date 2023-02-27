@@ -18,7 +18,7 @@ import pickle; import json
 'Using this instead'
 from qiskit_ibm_provider import IBMProvider, IBMBackend
 # provider = IBMProvider(token='') ##no-need for token for previously saved acaount -> provider.save_account(token='')
-provider = IBMProvider()
+# provider = IBMProvider()
 
 from qumcmc.basic_utils import qsm, states, MCMCChain, MCMCState
 # from .prob_dist import *
@@ -218,7 +218,7 @@ class QuantumSamplingJob() :
         
         pass
 
-    def run_quantum_circuit(self, gamma:float , time:float, delta_time:float = 0.8, num_shots:int = 1024, SPAM_twirl:bool = True, RZZ_twirl:bool = False, save_circuit_execution_data= True, save_data= True) :    
+    def run_quantum_circuit(self, gamma:float , time:float, delta_time:float = 0.8, num_shots:int = 1024, SPAM_twirl:bool = True, RZZ_twirl:bool = False, save_circuit_execution_data= True, save_data= True, verbose= True) :    
 
         alpha = self.model.alpha; n_spins = self.model.num_spins
         if SPAM_twirl:
@@ -256,31 +256,35 @@ class QuantumSamplingJob() :
         
         
         ## EXECUTE CIRCUIT ON BACKEND    
-              
+        if verbose: print("Circuit Built. Executing on backend : " +str(self.backend) )              
+
         circuit_executions_result = execute(qc_for_mcmc, shots=num_shots, backend=self.backend).result()
+        
         if save_circuit_execution_data: 
             self.quantum_circuit_id += 1
-            name = 'm' + self.model.name + 'id' + str(self.quantum_circuit_id) + '.pickle'; assert isinstance(name, str)
+            name =  self.model.name + 'id' + str(self.quantum_circuit_id) + '.pickle'; assert isinstance(name, str)
             with open('DATA/raw-circuit-outputs/'+ name, 'wb') as handle:
                 pickle.dump(circuit_executions_result, handle)
                 # pickle.dump(circuit_executions_result.get_counts(), handle)
         
-       ## UPDATE PROPOSAL MATRIX
-        state_obtained_dict = (
-            circuit_executions_result.get_counts()
-        )
+        if verbose : print("Execution Completed in : "+ str(circuit_executions_result.time_taken))
         
-        for states in state_obtained_dict:
-            input_state = int(states[n_spins:],2)^flipping  ## From first measurement
-            output_state = int(states[:n_spins],2)^flipping  ## From second measurement (Corrected for twirling using XOR operator ^)
-            transition = state_obtained_dict[states]/num_shots
+        ## UPDATE PROPOSAL MATRIX
+        # state_obtained_dict = (
+        #         circuit_executions_result.get_counts()
+        #     )
+            
+        # for states in state_obtained_dict:
+        #         input_state = int(states[n_spins:],2)^flipping  ## From first measurement
+        #         output_state = int(states[:n_spins],2)^flipping  ## From second measurement (Corrected for twirling using XOR operator ^)
+        #         transition = state_obtained_dict[states]/num_shots
 
-            self.ProposalMatrix[input_state,output_state] = transition *(2**n_spins) ## Factor for normalizing
+        #         self.ProposalMatrix[input_state,output_state] = transition *(2**n_spins) ## Factor for normalizing
 
-        if save_data:
-            name = 'm' + self.model.name + '.pickle'
-            with open('DATA/proposal-matrix-data/'+ name, 'wb') as handle:
-                pickle.dump(self.ProposalMatrix, handle)
+        # if save_data:
+        #     name = self.model.name + '.pickle'
+        #     with open('DATA/proposal-matrix-data/'+ name, 'wb') as handle:
+        #         pickle.dump(self.ProposalMatrix, handle)
 
 
     
