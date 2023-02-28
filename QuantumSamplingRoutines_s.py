@@ -155,7 +155,7 @@ class QuantumSamplingJob():
 
         pass
     
-    def sample_tranistion_matrix(self, gamma:float, time:float, delta_time:float= 0.8, num_shots:int= 1024, save_data= True, verbose= True ):
+    def sample_tranistion_matrix(self, gamma:float, time:float, delta_time:float= 0.8, num_shots:int= 1024, save_data= True, verbose= True, return_circuit:bool= False, return_data:bool= False ):
         
         initial_state = get_random_state(self.n_spins)
         qc_initialised_to_s = initialise_qc(self.model.num_spins, initial_state)
@@ -167,20 +167,32 @@ class QuantumSamplingJob():
             self.n_spins, qc_evol_h1, qc_evol_h2, num_trotter_steps=num_trotter_steps
         )
         qc_for_mcmc = combine_2_qc(qc_initialised_to_s, trotter_ckt)# i can get rid of this!
+
+        if return_circuit:    return qc_for_mcmc
         # run the circuit
         q_state=QuantumState(qubit_count=self.n_spins);q_state.set_zero_state()
         qc_for_mcmc.update_quantum_state(q_state)
         states_obtained= q_state.sampling(sampling_count= num_shots)
-        states_obtained_binary= DiscreteProbabilityDistribution(Counter([f"{state_obtained:0{self.n_spins}b}" for state_obtained in states_obtained if state_obtained in self.transition_data.keys()]))
+        
+        # states_obtained_binary= DiscreteProbabilityDistribution(Counter([f"{state_obtained:0{self.n_spins}b}" for state_obtained in states_obtained if state_obtained in self.transition_data.keys()]))
+        states_obtained_binary= DiscreteProbabilityDistribution(Counter([f"{state_obtained:0{self.n_spins}b}" for state_obtained in states_obtained]))
+        assert sum(states_obtained_binary.values()) == 1 , 'norm err'
 
+        ##@check
+        for k in states_obtained_binary.keys(): assert len(k) == self.n_spins , "something wrong"
 
     
         tdata = self.transition_data[initial_state]
         for k in states_obtained_binary.keys():
-            tdata[k] += states_obtained_binary[k]
-        self.transition_data[initial_state] = DiscreteProbabilityDistribution(tdata)
-            
+            tdata[k] = (tdata[k] + states_obtained_binary[k])  
+            # assert sum(tdata.values()) == 1 , 'norm err' 
+            print(tdata[k])
 
+        tdata = DiscreteProbabilityDistribution(tdata); tdata._normalise()
+        assert sum(tdata.values()) == 1 , 'norm err' 
+        self.transition_data[initial_state] = tdata
+            
+ 
         if save_data: 
             # self.quantum_circuit_id += 1
             name =  self.model.name + '.pickle'; assert isinstance(name, str)
